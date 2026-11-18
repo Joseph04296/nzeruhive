@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  /* Poppins for headings/UI, Inter for long-form body copy */
+  --font-display: "Poppins", sans-serif;
+  --font-sans: "Inter", sans-serif;
+
+  /* Brand */
+  --color-teal: #1565D8;
+  --color-lake: #1565D8;
+  --color-blue: #1565D8;
+  --color-mint: #EAF1FC;
+
+  /* Neutrals: neutral greys read more professional than green-tinted ones */
+  --color-forest: #212121;
+  --color-ink: #212121;
+  --color-body: #4B5563;
+  --color-muted: #6B7280;
+  --color-border: #E5E7EB;
+  --color-canvas: #F7F8FA;
+  --color-mist: #F7F8FA;
+
+  /* Accents, used sparingly */
+  --color-gold: #D9A441;
+  --color-orange: #E9A23B;
+  --color-sun: #E9A23B;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: #F7F8FA;
+  color: #4B5563;
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  color: #212121;
+  font-family: "Poppins", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+p { text-wrap: pretty; }
+h1, h2, h3 { text-wrap: balance; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #1565D8;
+  outline-offset: 2px;
+}
+
+summary::-webkit-details-marker { display: none; }
+summary { list-style: none; }

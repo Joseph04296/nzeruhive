@@ -1,0 +1,5 @@
+create table if not exists users(id serial primary key,name text not null,email text unique not null,password text not null,role text not null default 'learner');
+create table if not exists courses(id serial primary key,title text not null,description text,category text,pass_mark int not null default 70,questions jsonb not null default '[]',skills jsonb not null default '[]',hidden boolean not null default false);
+create table if not exists lessons(id serial primary key,course_id int references courses(id) on delete cascade,position int not null,title text not null,body text,video_url text,duration_min int not null default 5);
+create table if not exists progress(user_id int references users(id) on delete cascade,lesson_id int references lessons(id) on delete cascade,primary key(user_id,lesson_id));
+create table if not exists attempts(id serial primary key,user_id int references users(id) on delete cascade,course_id int references courses(id) on delete cascade,score int,passed boolean,created_at timestamptz default now());
