@@ -1,0 +1,85 @@
+@theme {
+  /* Typography */
+  --font-display: "Manrope", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Brand — Midnight Plum */
+  --color-primary-900: #35142C;
+  --color-primary-800: #542344;
+  --color-primary-700: #683653;
+  --color-primary-600: #794565;
+  --color-primary-500: #91617D;
+  --color-primary-400: #A87896;
+  --color-primary-200: #DCC5D3;
+  --color-primary-100: #F1E7ED;
+  --color-primary-50: #F9F4F7;
+
+  /* Neutrals */
+  --color-background: #FAF9F8;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F5F2F3;
+  --color-border: #EAE3E7;
+  --color-text-primary: #292329;
+  --color-text-secondary: #716871;
+  --color-text-muted: #9A9298;
+  --color-disabled: #D8D2D6;
+
+  /* Supporting surfaces and accents */
+  --color-night: #241726;
+  --color-night-soft: #38263A;
+  --color-cream: #FCF7F3;
+  --color-sand: #F3E7DC;
+  --color-accent: #D29A5B;
+
+  /* Status */
+  --color-success: #26835B;
+  --color-warning: #C28A32;
+  --color-error: #C34F59;
+  --color-info: #4679A5;
+
+  /* Legacy aliases — keep existing screens compiling while portals are rebuilt */
+  --color-teal: #542344;
+  --color-lake: #542344;
+  --color-blue: #542344;
+  --color-mint: #F1E7ED;
+  --color-forest: #292329;
+  --color-ink: #292329;
+  --color-body: #716871;
+  --color-muted: #9A9298;
+  --color-canvas: #FAF9F8;
+  --color-mist: #FAF9F8;
+  --color-gold: #C28A32;
+  --color-orange: #C28A32;
+  --color-sun: #C28A32;
+}
+
+:root {
+  /* Semantic action tokens */
+  --nz-action-bg: var(--color-primary-800);
+  --nz-action-bg-hover: var(--color-primary-700);
+  --nz-action-bg-active: var(--color-primary-900);
+  --nz-action-fg: #FFFFFF;
+
+  --nz-link: var(--color-primary-800);
+  --nz-link-hover: var(--color-primary-700);
+
+  --nz-nav-active-bg: var(--color-primary-100);
+  --nz-nav-active-fg: var(--color-primary-800);
+  --nz-nav-inactive-fg: var(--color-text-secondary);
+
+  --nz-focus-ring: rgba(145, 97, 125, 0.35);
+  --nz-focus-ring-light: rgba(220, 197, 211, 0.65);
+
+  --nz-surface-inverse: var(--color-primary-900);
+  --nz-text-on-brand: #FFFFFF;
+
+  --nz-radius-card: 12px;
+  --nz-shadow-sm: 0 1px 2px rgba(41, 35, 41, 0.05);
+  --nz-shadow-md: 0 4px 12px rgba(41, 35, 41, 0.07);
+  --nz-shadow-lg: 0 12px 32px rgba(41, 35, 41, 0.1);
+
+  --nz-content-max: 1200px;
+  --nz-content-wide: 1320px;
+  --nz-sidebar-width: 256px;
+  --nz-sidebar-collapsed: 76px;
+}

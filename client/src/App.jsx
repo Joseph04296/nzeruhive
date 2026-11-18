@@ -1,18 +1,26 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { AuthDialogProvider, useAuthDialogState } from './context/AuthDialogContext.jsx';
+import PublicLayout from './layouts/PublicLayout.jsx';
+import HomePage from './pages/public/HomePage.jsx';
+import CoursesPage from './pages/public/CoursesPage.jsx';
+import {
+  CookiePolicyPage,
+  FaqPage,
+  HelpPage,
+  InstitutionDetailPage,
+  InstitutionsPage,
+  LearningPathDetailPage,
+  LearningPathsPage,
+  OrganisationApplyPage,
+  OrganisationPage,
+} from './pages/public/PublicInfoPages.jsx';
+import { api } from './services/api.js';
 import { AdminCourses, CourseEditor, Dashboard, Users } from './Admin.jsx';
 
-const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://thanzilearn.onrender.com' : 'http://localhost:5000');
-
-const Ctx = createContext(null);
-const useAuth = () => useContext(Ctx);
-
-// Opens the global login/register dialog from anywhere on the public site.
-const AuthDialogCtx = createContext(() => {});
-const useAuthDialog = () => useContext(AuthDialogCtx);
-
 const inp = 'h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-forest placeholder:text-muted/80 transition focus:border-teal';
-const btn = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal px-5 text-sm font-semibold text-white transition hover:bg-[#0F52B5] disabled:cursor-not-allowed disabled:opacity-60';
+const btn = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal px-5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60';
 const btnOutline = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-transparent px-5 text-sm font-semibold text-forest transition hover:border-teal/50 hover:text-teal';
 const btnSoft = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-white px-5 text-sm font-semibold text-forest transition hover:border-teal/50 hover:text-teal';
 const card = 'min-w-0 rounded-xl border border-border bg-white p-5 sm:p-6';
@@ -55,144 +63,23 @@ const fmt = (m = 0) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60}
 const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
 const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('') || 'U';
 
-// Local catalogue. It keeps the public pages complete when the API is empty
-// (for example on a fresh deployment before seed data is loaded), and gives
-// these sample courses their own working detail pages.
-const SAMPLE_COURSES = [
-  {
-    id: 'sample-1',
-    title: 'Safe medication administration',
-    category: 'Patient safety',
-    level: 'Beginner',
-    image: '/images/medication.jpg',
-    description: 'The five rights, allergy checks and recording, for safer medicine rounds.',
-    about: [
-      'Every medicine round carries risk. This short course walks through the practical checks that prevent the most common medication errors, from confirming the right patient to recording a dose correctly.',
-      'Lessons are written for frontline staff working in busy wards and clinics. You will practise a simple, repeatable checking routine and learn what to do when something goes wrong.',
-    ],
-    outcomes: [
-      'Apply the five rights before every dose',
-      'Check allergies and the medication chart correctly',
-      'Handle high-risk medicines with a second check',
-      'Record doses accurately and report errors safely',
-    ],
-    pass_mark: 70,
-    questions: 3,
-    curriculum: [
-      { id: 's1-l1', title: 'The five rights', duration_min: 5 },
-      { id: 's1-l2', title: 'Allergies and high-risk medicines', duration_min: 6 },
-      { id: 's1-l3', title: 'Preparing and checking a dose', duration_min: 5 },
-      { id: 's1-l4', title: 'Record, report and learn', duration_min: 5 },
-    ],
-  },
-  {
-    id: 'sample-2',
-    title: 'TB basics for frontline staff',
-    category: 'Infectious disease',
-    level: 'Beginner',
-    image: '/images/TB.jpg',
-    description: 'How TB spreads, how to spot possible cases, and how to protect yourself and others.',
-    about: [
-      'Tuberculosis is still one of the most common infectious diseases in the region, and frontline staff are often the first to notice the signs. This course covers how TB spreads, who is most at risk, and how to refer a patient for testing.',
-      'You will also learn the practical infection-prevention steps that protect staff, patients and visitors in waiting areas and consultation rooms.',
-    ],
-    outcomes: [
-      'Explain how TB spreads and who is most at risk',
-      'Recognise the common symptoms of possible TB',
-      'Refer patients for testing using national guidelines',
-      'Protect yourself and others with ventilation and masks',
-    ],
-    pass_mark: 70,
-    questions: 3,
-    curriculum: [
-      { id: 's2-l1', title: 'How TB spreads', duration_min: 5 },
-      { id: 's2-l2', title: 'Recognising possible TB', duration_min: 5 },
-      { id: 's2-l3', title: 'Testing and referral', duration_min: 5 },
-      { id: 's2-l4', title: 'Protecting yourself and others', duration_min: 6 },
-    ],
-  },
-  {
-    id: 'sample-3',
-    title: 'AI in healthcare: the basics',
-    category: 'Digital health',
-    level: 'Beginner',
-    image: '/images/Ai+health.jpg',
-    description: 'What AI tools can and cannot do, and how to use their results carefully.',
-    about: [
-      'AI tools are increasingly used to read scans, flag risk and support triage. This introductory course explains what these tools actually do, where they help, and where clinical judgement must stay in charge.',
-      'You will look at false positives, false negatives and patient privacy, and practise treating an AI result as one input rather than an answer.',
-    ],
-    outcomes: [
-      'Describe what healthcare AI tools can and cannot do',
-      'Combine AI results with clinical judgement',
-      'Recognise false positives and false negatives',
-      'Protect patient data when using AI tools',
-    ],
-    pass_mark: 70,
-    questions: 3,
-    curriculum: [
-      { id: 's3-l1', title: 'What AI can and cannot do', duration_min: 6 },
-      { id: 's3-l2', title: 'Using AI results carefully', duration_min: 6 },
-      { id: 's3-l3', title: 'Privacy and responsibility', duration_min: 5 },
-    ],
-  },
-];
-
-const sampleCard = c => ({
-  ...c,
-  lessons: c.curriculum.length,
-  minutes: c.curriculum.reduce((s, l) => s + l.duration_min, 0),
-  sample: true,
-});
-
-// API courses take priority; sample courses only fill the gaps so the public
-// catalogue never looks empty and never shows a duplicate title.
-function mergeSampleCourses(list) {
-  const remote = Array.isArray(list) ? list : [];
-  const titles = new Set(remote.map(c => (c.title || '').trim().toLowerCase()));
-  return [...remote, ...SAMPLE_COURSES.map(sampleCard).filter(c => !titles.has(c.title.toLowerCase()))];
-}
-
-async function api(path, opts = {}, token) {
-  const t = token ?? localStorage.getItem('t');
-  const r = await fetch(API + '/api' + path, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(t ? { Authorization: 'Bearer ' + t } : {}),
-      ...(opts.headers || {}),
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    if (r.status === 401 && t) {
-      localStorage.clear();
-      if (!location.pathname.startsWith('/login')) location.href = '/login';
-    }
-    const err = new Error(d.error || 'Something went wrong');
-    err.status = r.status;
-    throw err;
-  }
-  return d;
-}
-
-function useCourses({ fallback = false } = {}) {
+function useCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      setCourses(fallback ? mergeSampleCourses(await api('/courses')) : await api('/courses'));
-    } catch (e) {
-      if (fallback) setCourses(SAMPLE_COURSES.map(sampleCard));
-      else setError(e.message);
+      setCourses(await api('/courses'));
+    } catch (requestError) {
+      setError(requestError.message);
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => { load(); }, []);
   return { courses, loading, error, reload: load };
 }
@@ -287,7 +174,7 @@ function AuthDialog({ mode, onClose, onSwitch }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[#0B1F33]/60 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-primary-900/60 p-4 backdrop-blur-sm sm:items-center"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
       role="presentation"
     >
@@ -306,12 +193,12 @@ function AuthDialog({ mode, onClose, onSwitch }) {
           <Icon name="x" className="h-4 w-4" />
         </button>
 
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal">ThanziLearn</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal">Nzeruhive</p>
         <h2 id="auth-dialog-title" className="mt-1.5 pr-8 font-display text-[1.5rem] font-semibold leading-tight tracking-[-0.02em] text-forest">
           {isRegister ? 'Create your free account' : 'Welcome back'}
         </h2>
         <p className="mt-1.5 text-[13px] leading-6 text-body">
-          {isRegister ? 'Join ThanziLearn to enrol in courses, track your progress and earn certificates.' : 'Log in to continue your courses and pick up where you left off.'}
+          {isRegister ? 'Join Nzeruhive to enrol in courses, track your progress and earn certificates.' : 'Log in to continue your courses and pick up where you left off.'}
         </p>
 
         <div className="mt-5 grid gap-2">
@@ -363,227 +250,12 @@ function AuthDialog({ mode, onClose, onSwitch }) {
         </form>
 
         <p className="mt-5 text-center text-[13px] text-body">
-          {isRegister ? 'Already have an account?' : 'New to ThanziLearn?'}{' '}
+          {isRegister ? 'Already have an account?' : 'New to Nzeruhive?'}{' '}
           <button type="button" onClick={() => onSwitch(isRegister ? 'login' : 'register')} className="font-semibold text-teal hover:underline">
             {isRegister ? 'Log in' : 'Create an account'}
           </button>
         </p>
       </div>
-    </div>
-  );
-}
-
-function Site({ children }) {
-  const { user, logout } = useAuth();
-  const openAuth = useAuthDialog();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [open, setOpen] = useState(false);
-  const [explore, setExplore] = useState(false);
-  const [lang, setLang] = useState(false);
-  const [notes, setNotes] = useState(false);
-  const [profile, setProfile] = useState(false);
-  const [search, setSearch] = useState('');
-
-  // One place to close every menu when the page changes.
-  useEffect(() => {
-    setOpen(false); setExplore(false); setLang(false); setNotes(false); setProfile(false);
-  }, [location.pathname, location.search]);
-
-  // Open the login/register dialog instead of leaving the page. Closing the
-  // mobile menu first means the dialog is never stacked behind it.
-  const promptAuth = mode => {
-    setOpen(false); setExplore(false); setProfile(false);
-    openAuth(mode);
-  };
-
-  const submitSearch = e => {
-    e.preventDefault();
-    const term = search.trim();
-    navigate(term ? `/courses?q=${encodeURIComponent(term)}` : '/courses');
-    setSearch('');
-    setOpen(false);
-  };
-
-  const exploreCourses = SAMPLE_COURSES.slice(0, 3);
-  const iconBtn = 'inline-flex h-9 w-9 items-center justify-center rounded-full text-body transition hover:bg-canvas hover:text-teal';
-  const menuItem = 'block rounded-lg px-3 py-2 text-[13px] text-body hover:bg-canvas hover:text-teal';
-
-  return (
-    <div className="min-h-screen bg-canvas text-body">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-forest">Skip to content</a>
-      <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur print:hidden">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-2 px-4 sm:px-5 lg:px-10">
-          <Link to="/" className="shrink-0 font-display text-lg font-semibold tracking-[-0.02em] text-teal md:text-xl">ThanziLearn</Link>
-
-          {/* Left cluster: Explore + My learning + About */}
-          <nav className="ml-2 hidden items-center gap-0.5 lg:flex" aria-label="Primary">
-            <div className="relative" onMouseEnter={() => setExplore(true)} onMouseLeave={() => setExplore(false)}>
-              <button type="button" onClick={() => { setExplore(v => !v); setProfile(false); }} aria-expanded={explore} aria-haspopup="true" className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-[14px] text-body transition hover:bg-canvas hover:text-teal">
-                Explore <Icon name="chevron" className={`h-3.5 w-3.5 transition-transform ${explore ? 'rotate-180' : ''}`} />
-              </button>
-              {explore && (
-                <div className="absolute left-0 top-full z-50 w-72 pt-1.5">
-                  <div className="rounded-xl border border-border bg-white p-2 shadow-lg">
-                    <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Popular courses</p>
-                    {exploreCourses.map(c => (
-                      <Link key={c.id} to={`/courses/${c.id}`} className="block rounded-lg px-3 py-2 transition hover:bg-canvas">
-                        <span className="block text-[13px] font-medium leading-5 text-forest">{c.title}</span>
-                        <span className="block text-[11px] text-muted">{c.category}</span>
-                      </Link>
-                    ))}
-                    <div className="mt-1 border-t border-border pt-1">
-                      <Link to="/courses" className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium text-teal transition hover:bg-mint">Browse all courses <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            {user && (
-              <NavLink to="/learn" className={({ isActive }) => `rounded-lg px-2.5 py-2 text-[14px] transition ${isActive ? 'text-teal' : 'text-body hover:bg-canvas hover:text-teal'}`}>My learning</NavLink>
-            )}
-            <NavLink to="/about" className={({ isActive }) => `rounded-lg px-2.5 py-2 text-[14px] transition ${isActive ? 'text-teal' : 'text-body hover:bg-canvas hover:text-teal'}`}>About</NavLink>
-          </nav>
-
-          {/* Search stays next to the left cluster */}
-          <form onSubmit={submitSearch} className="ml-2 hidden min-w-0 flex-1 md:block" role="search">
-            <div className="relative w-full max-w-[320px]">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search courses" aria-label="Search courses" className="h-9 w-full rounded-full border border-border bg-canvas pl-4 pr-11 text-[13px] text-forest placeholder:text-muted transition focus:border-teal focus:bg-white" />
-              <button type="submit" aria-label="Search" className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-teal text-white transition hover:bg-[#0F52B5]">
-                <Icon name="search" className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </form>
-
-          {/* Right cluster */}
-          <div className="ml-auto flex items-center gap-0.5">
-            {user ? (
-              <>
-                <div className="relative hidden sm:block">
-                  <button type="button" onClick={() => { setLang(v => !v); setNotes(false); setProfile(false); }} className={iconBtn} aria-label="Language" aria-expanded={lang}>
-                    <Icon name="globe" className="h-[18px] w-[18px]" />
-                  </button>
-                  {lang && (
-                    <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-border bg-white p-2 shadow-lg">
-                      <p className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Language</p>
-                      <button type="button" className="flex w-full items-center justify-between rounded-lg bg-mint px-3 py-2 text-[13px] font-medium text-teal">English <Icon name="check" className="h-3.5 w-3.5" /></button>
-                    </div>
-                  )}
-                </div>
-                <div className="relative hidden sm:block">
-                  <button type="button" onClick={() => { setNotes(v => !v); setLang(false); setProfile(false); }} className={iconBtn} aria-label="Notifications" aria-expanded={notes}>
-                    <Icon name="bell" className="h-[18px] w-[18px]" />
-                    <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-orange" aria-hidden="true" />
-                  </button>
-                  {notes && (
-                    <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-white p-4 shadow-lg">
-                      <p className="text-[13px] font-medium text-forest">Notifications</p>
-                      <p className="mt-1.5 text-[12px] leading-5 text-body">You’re all caught up. Course updates and reminders will appear here.</p>
-                    </div>
-                  )}
-                </div>
-                <div className="relative">
-                  <button type="button" onClick={() => { setProfile(v => !v); setLang(false); setNotes(false); }} className="flex h-9 w-9 items-center justify-center rounded-full bg-mint text-[11px] font-semibold text-teal transition hover:bg-teal hover:text-white" aria-label="Account menu" aria-expanded={profile}>
-                    {initials(user.name)}
-                  </button>
-                  {profile && (
-                    <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-xl border border-border bg-white p-2 shadow-lg">
-                      <div className="px-3 py-2">
-                        <p className="truncate text-[13px] font-medium text-forest">{user.name}</p>
-                        <p className="text-[11px] text-muted">{user.role === 'admin' ? 'Administrator' : 'Learner account'}</p>
-                      </div>
-                      <div className="border-t border-border pt-1">
-                        <Link to={user.role === 'admin' ? '/admin' : '/learn'} className={menuItem}>{user.role === 'admin' ? 'Admin dashboard' : 'My learning'}</Link>
-                        {user.role !== 'admin' && <Link to="/learn?tab=certificated" className={menuItem}>Certificates</Link>}
-                        <Link to="/learn/settings" className={menuItem}>Settings</Link>
-                        <button type="button" onClick={logout} className="block w-full rounded-lg px-3 py-2 text-left text-[13px] text-body transition hover:bg-canvas hover:text-teal">Log out</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={() => promptAuth('login')} className="hidden h-9 items-center rounded-lg px-3 text-[14px] font-medium text-teal transition hover:bg-mint sm:inline-flex">Log in</button>
-                <button type="button" onClick={() => promptAuth('register')} className="hidden h-9 items-center rounded-lg border border-teal bg-transparent px-3.5 text-[13px] font-semibold text-teal transition hover:bg-mint sm:inline-flex">Get started</button>
-              </>
-            )}
-            <button type="button" onClick={() => setOpen(v => !v)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-forest lg:hidden" aria-expanded={open} aria-controls="mobile-nav" aria-label={open ? 'Close menu' : 'Open menu'}>
-              <Icon name={open ? 'x' : 'menu'} className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {open && (
-          <div id="mobile-nav" className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-border bg-white px-4 py-4 lg:hidden">
-            <form onSubmit={submitSearch} role="search" className="relative mb-3">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search courses" aria-label="Search courses" className="h-10 w-full rounded-full border border-border bg-canvas pl-4 pr-12 text-[13px] text-forest placeholder:text-muted focus:border-teal focus:bg-white" />
-              <button type="submit" aria-label="Search" className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-teal text-white transition hover:bg-[#0F52B5]">
-                <Icon name="search" className="h-4 w-4" />
-              </button>
-            </form>
-            <nav className="flex flex-col gap-0.5 text-[14px]" aria-label="Mobile">
-              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Explore courses</p>
-              {exploreCourses.map(c => (
-                <Link key={c.id} to={`/courses/${c.id}`} className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">{c.title}</Link>
-              ))}
-              <Link to="/courses" className="rounded-lg px-3 py-2 font-medium text-teal transition hover:bg-mint">Browse all courses</Link>
-              <div className="my-2 border-t border-border" />
-              {user && <Link to="/learn" className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">My learning</Link>}
-              <Link to="/about" className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">About</Link>
-              <Link to="/contact" className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">Contact</Link>
-              {user ? (
-                <>
-                  {user.role === 'admin' && <Link to="/admin" className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">Admin dashboard</Link>}
-                  {user.role !== 'admin' && <Link to="/learn/settings" className="rounded-lg px-3 py-2 text-body transition hover:bg-canvas hover:text-forest">Settings</Link>}
-                  <button type="button" onClick={logout} className="rounded-lg px-3 py-2 text-left text-body transition hover:bg-canvas hover:text-forest">Log out</button>
-                </>
-              ) : (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => promptAuth('login')} className="inline-flex h-10 items-center justify-center rounded-lg border border-teal text-sm font-medium text-teal">Log in</button>
-                  <button type="button" onClick={() => promptAuth('register')} className="inline-flex h-10 items-center justify-center rounded-lg border border-teal text-sm font-semibold text-teal">Get started</button>
-                </div>
-              )}
-            </nav>
-          </div>
-        )}
-      </header>
-      <main id="main" className="flex-1 overflow-x-clip">{children}</main>
-      <footer className="bg-white print:hidden">
-        <div className="mx-auto grid max-w-[1200px] gap-8 px-4 py-12 sm:px-5 md:grid-cols-2 lg:grid-cols-4 lg:px-10">
-          <div>
-            <Link to="/" className="font-display text-lg font-semibold tracking-[-0.02em] text-teal">ThanziLearn</Link>
-            <p className="mt-3 max-w-xs text-sm leading-6 text-body">Learn. Grow. Strengthen Healthcare.</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-forest">Explore</h3>
-            <ul className="mt-3 space-y-2.5 text-sm text-body">
-              <li><Link to="/" className="hover:text-teal">Home</Link></li>
-              <li><Link to="/courses" className="hover:text-teal">Courses</Link></li>
-              <li><Link to="/about" className="hover:text-teal">About Us</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-forest">Account</h3>
-            <ul className="mt-3 space-y-2.5 text-sm text-body">
-              <li><button type="button" onClick={() => promptAuth('login')} className="hover:text-teal">Log in</button></li>
-              <li><button type="button" onClick={() => promptAuth('register')} className="hover:text-teal">Create account</button></li>
-              <li>{user ? <Link to={user.role === 'admin' ? '/admin' : '/learn'} className="hover:text-teal">My learning</Link> : <button type="button" onClick={() => promptAuth('login')} className="hover:text-teal">My learning</button>}</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-forest">Support</h3>
-            <ul className="mt-3 space-y-2.5 text-sm text-body">
-              <li><Link to="/contact" className="hover:text-teal">Contact us</Link></li>
-              <li><Link to="/privacy" className="hover:text-teal">Privacy policy</Link></li>
-              <li><Link to="/terms" className="hover:text-teal">Terms of use</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="border-t border-border">
-          <div className="mx-auto max-w-[1200px] px-4 py-4 text-[13px] text-muted sm:px-5 lg:px-10">© 2026 ThanziLearn. All rights reserved.</div>
-        </div>
-      </footer>
     </div>
   );
 }
@@ -596,7 +268,7 @@ function PageHero({ eyebrow, title, text, image = '/images/herobg1.jpg' }) {
   return (
     <section className="relative isolate h-[360px] overflow-hidden bg-forest sm:h-[400px] lg:h-[440px]">
       <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0B1F33]/80 via-[#0B1F33]/50 to-[#0B1F33]/10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-primary-900/85 via-primary-900/50 to-primary-900/10" />
       <div className="relative mx-auto flex h-full max-w-[1200px] items-center px-4 sm:px-5 lg:px-10">
         <div className="max-w-2xl">
           {eyebrow && <p className={`mb-3 ${eyebrowOnDark}`}>{eyebrow}</p>}
@@ -643,206 +315,6 @@ function CourseCard({ course, to }) {
   );
 }
 
-function Landing() {
-  const { courses, loading } = useCourses({ fallback: true });
-  const featured = courses.slice(0, 3);
-
-  return (
-    <>
-      {/* Hero */}
-      <section className="relative isolate overflow-hidden bg-forest">
-        <img src="/images/herobg.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0B1F33]/80 via-[#0B1F33]/50 to-[#0B1F33]/10" />
-        <div className="relative mx-auto flex max-w-[1200px] items-center px-5 py-14 md:py-20 lg:px-10 lg:py-24">
-          <div className="max-w-lg">
-            <p className={eyebrowOnDark}>Healthcare learning</p>
-            <h1 className="mt-3 font-display text-[2rem] font-semibold leading-[1.12] tracking-[-0.02em] sm:text-[2.5rem] lg:text-[2.85rem]" style={{ color: '#FFFFFF' }}>
-              Building knowledge.<br /><span className="text-[#7DB1FF]">Strengthening</span> healthcare.
-            </h1>
-            <p className="mt-4 max-w-md text-[15px] leading-7 text-white/80">Practical, self-paced courses for healthcare professionals and students.</p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/courses" className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-teal transition hover:bg-mint">Explore courses</Link>
-              <Link to="/about" className="inline-flex h-11 items-center justify-center rounded-lg border border-white/30 px-5 text-sm font-semibold text-white transition hover:bg-white/10">About us</Link>
-            </div>
-            <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-[13px] font-medium text-white/70">
-              {[
-                { icon: 'clock', label: 'Flexible learning' },
-                { icon: 'book', label: 'Practical courses' },
-                { icon: 'award', label: 'Certificates of completion' },
-              ].map(item => (
-                <li key={item.label} className="inline-flex items-center gap-2"><Icon name={item.icon} className="h-4 w-4 text-white/50" />{item.label}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Quiet stat row, Coursera-style: a thin band under the hero */}
-      <section className="border-b border-border bg-white">
-        <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-px bg-border md:grid-cols-4">
-          {[
-            { value: 'Self-paced', label: 'Learn on your schedule' },
-            { value: '100% online', label: 'Any device, anywhere' },
-            { value: 'Free to learn', label: 'No payment required' },
-            { value: 'Certificate', label: 'On successful completion' },
-          ].map(item => (
-            <div key={item.value} className="bg-white px-5 py-5 text-center md:py-6">
-              <div className="font-display text-[15px] font-semibold text-forest md:text-base">{item.value}</div>
-              <div className="mt-0.5 text-[12px] text-muted">{item.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Why ThanziLearn */}
-      <section className="bg-white">
-        <div className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 py-14 md:py-20 lg:grid-cols-2 lg:gap-14 lg:px-10">
-          <div className="relative">
-            <img src="/images/why.jpg" alt="Healthcare professionals learning together" className="aspect-[4/3] w-full rounded-xl border border-border object-cover" />
-            <div className="absolute -bottom-3 -right-2 rounded-lg border border-border bg-white px-3.5 py-2.5 shadow-sm md:-right-4">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-forest"><span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-mint text-teal"><Icon name="book" className="h-3.5 w-3.5" /></span>Learn at your pace</div>
-            </div>
-          </div>
-          <div>
-            <p className={eyebrowCls}>Why ThanziLearn</p>
-            <h2 className={`mt-2.5 ${h2Cls}`}>Learning that supports better care.</h2>
-            <p className={`mt-3 max-w-xl ${bodyCls}`}>Accessible, focused courses that help healthcare professionals grow their knowledge and skills.</p>
-            <ul className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {[
-                { icon: 'device', title: 'Accessible learning' },
-                { icon: 'clock', title: 'Flexible learning' },
-                { icon: 'shield', title: 'Practical knowledge' },
-              ].map(item => (
-                <li key={item.title}>
-                  <Icon name={item.icon} className="h-5 w-5 text-forest" />
-                  <h3 className="mt-2.5 font-display text-[15px] font-medium leading-snug text-forest">{item.title}</h3>
-                </li>
-              ))}
-            </ul>
-            <Link to="/about" className={btn + ' mt-7'}>Learn more <Icon name="arrow" className="h-4 w-4" /></Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured courses */}
-      <section className="border-y border-border bg-canvas">
-        <div className="mx-auto max-w-[1200px] px-5 py-14 md:py-20 lg:px-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className={eyebrowCls}>Explore our courses</p>
-              <h2 className={`mt-2.5 ${h2Cls}`}>Explore learning opportunities.</h2>
-              <p className={`mt-2.5 max-w-2xl ${bodyCls}`}>Discover courses covering healthcare practice, patient safety, public health and emerging technologies.</p>
-            </div>
-            <Link to="/courses" className="inline-flex items-center gap-1.5 text-sm font-medium text-teal hover:text-[#0F52B5]">View all courses <Icon name="arrow" className="h-4 w-4" /></Link>
-          </div>
-          <div className="mt-8">
-            {loading ? <Loading label="Loading courses…" /> : (
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                {featured.map(c => <CourseCard key={c.id} course={c} />)}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Designed for practical learning */}
-      <section className="relative isolate overflow-hidden bg-forest">
-        <img src="/images/Designedbg.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-[#0B1F33]/85" />
-        <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-5 py-14 md:py-20 lg:grid-cols-2 lg:px-10">
-          <div>
-            <p className={eyebrowOnDark}>Designed for practical learning</p>
-            <h2 className="mt-2.5 font-display text-2xl font-semibold leading-[1.2] tracking-[-0.015em] md:text-[2rem]" style={{ color: '#FFFFFF' }}>More than just reading. An engaging learning experience.</h2>
-            <p className="mt-3 max-w-xl text-[15px] leading-7 text-white/70">Clear, focused lessons help you learn, practise, and track your progress with confidence.</p>
-            <Link to="/courses" className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-teal transition hover:bg-mint">Explore courses <Icon name="arrow" className="h-4 w-4" /></Link>
-          </div>
-          <div className="relative mx-auto w-full max-w-lg">
-            <img src="/images/desgned.jpg" alt="Healthcare learning experience" className="aspect-[4/3] w-full rounded-xl object-cover" />
-            <div className="absolute -left-2 top-5 rounded-lg bg-white px-3.5 py-2.5 shadow-lg md:-left-5">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-mint text-teal"><Icon name="play" className="h-4 w-4" /></span>
-                <div><p className="text-[11px] text-muted">Lesson progress</p><p className="text-[13px] font-semibold text-forest">65% complete</p></div>
-              </div>
-            </div>
-            <div className="absolute -bottom-3 -right-2 rounded-lg bg-white px-3.5 py-2.5 shadow-lg md:-right-5">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-mint text-teal"><Icon name="award" className="h-4 w-4" /></span>
-                <div><p className="text-[11px] text-muted">On completion</p><p className="text-[13px] font-semibold text-forest">Earn a certificate</p></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Certificate */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-[1200px] px-5 py-14 md:py-20 lg:px-10">
-          <div className="grid items-center gap-8 rounded-xl border border-border bg-canvas p-6 md:grid-cols-[1.1fr_0.9fr] md:p-10">
-            <div>
-              <p className={eyebrowCls}>Show your achievement</p>
-              <h2 className={`mt-2.5 ${h2Cls}`}>Earn a certificate you can add to your resume.</h2>
-              <p className={`mt-3 max-w-xl ${bodyCls}`}>Upon successful completion of a course, you’ll receive a certificate of completion to showcase your learning and professional development on your resume or profile.</p>
-            </div>
-            <div className="rounded-xl border border-border bg-white p-6 text-center shadow-sm">
-              <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-lg bg-mint text-teal"><Icon name="award" className="h-6 w-6" /></div>
-              <p className="mt-3.5 font-display text-base font-semibold text-forest">Certificate of Completion</p>
-              <p className="mt-0.5 text-[13px] text-muted">ThanziLearn</p>
-              <div className="mt-4 h-1.5 w-full rounded-full bg-canvas"><div className="h-1.5 w-3/4 rounded-full bg-teal/80" /></div>
-              <p className="mt-2.5 text-[11px] text-muted">Add it to your resume and professional profiles</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-teal">
-        <div className="mx-auto max-w-[1200px] px-5 py-14 md:py-16 lg:px-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-2xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mint/80">Your learning journey starts here</p>
-              <h2 className="mt-2.5 font-display text-2xl font-semibold leading-[1.2] tracking-[-0.015em] md:text-[2rem]" style={{ color: '#FFFFFF' }}>Invest in your knowledge. Strengthen your impact.</h2>
-              <p className="mt-2.5 text-[15px] leading-7 text-white/75 md:text-base">Explore practical learning opportunities and take the next step in your professional development.</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-3 md:justify-end">
-              <Link to="/courses" className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-teal transition hover:bg-mint">Explore courses</Link>
-              <Link to="/contact" className="inline-flex h-11 items-center justify-center rounded-lg border border-white/30 px-5 text-sm font-semibold text-white transition hover:bg-white/10">Contact us</Link>
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function Catalogue() {
-  const { courses, loading, error, reload } = useCourses({ fallback: true });
-  const [params] = useSearchParams();
-  const [query, setQuery] = useState(params.get('q') || '');
-  const [category, setCategory] = useState('');
-  useEffect(() => { setQuery(params.get('q') || ''); }, [params]);
-  const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
-  const list = courses.filter(c => {
-    const q = query.toLowerCase();
-    const matchQ = !q || `${c.title} ${c.description || ''} ${c.category || ''}`.toLowerCase().includes(q);
-    const matchC = !category || c.category === category;
-    return matchQ && matchC;
-  });
-  return (
-    <>
-      <PageHero eyebrow="Courses" title="Explore practical courses." text="Flexible, healthcare-focused training designed to strengthen your knowledge and support better care." image="/images/course.jpg" />
-      <Wrap>
-        <div className="-mt-8 mb-8 grid gap-4 rounded-xl border border-border bg-white p-3.5 shadow-sm md:-mt-12 md:grid-cols-[1fr_220px]">
-          <label className="block"><span className="sr-only">Search courses</span><div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/40"><Icon name="search" className="h-4 w-4" /></span><input className={inp + ' pl-9'} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by title or keyword" /></div></label>
-          <label className="block"><span className="sr-only">Filter by category</span><select className={inp} value={category} onChange={e => setCategory(e.target.value)}><option value="">All categories</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></label>
-        </div>
-        {loading ? <Loading label="Loading courses…" /> : error ? <StateBox title="Couldn’t load courses" text={error} action={<button className={btn} onClick={reload}>Try again</button>} /> : list.length === 0 ? (
-          <StateBox title="No courses found" text={courses.length ? 'Try a different search or category.' : 'No courses have been published yet.'} action={courses.length ? <button className={btnSoft} onClick={() => { setQuery(''); setCategory(''); }}>Clear filters</button> : null} />
-        ) : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{list.map(c => <CourseCard key={c.id} course={c} />)}</div>}
-      </Wrap>
-    </>
-  );
-}
-
 function Preview() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -852,7 +324,7 @@ function Preview() {
   const [loading, setLoading] = useState(true);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [notified, setNotified] = useState(false);
-  const notifyKey = 'thanzi-notify:' + id;
+  const notifyKey = 'nzeruhive-notify:' + id;
 
   useEffect(() => {
     try { setNotified(localStorage.getItem(notifyKey) === '1'); } catch { setNotified(false); }
@@ -871,42 +343,22 @@ function Preview() {
   };
 
   useEffect(() => {
-    const local = SAMPLE_COURSES.find(c => c.id === id);
-    if (local) {
-      setData({
-        course: {
-          id: local.id,
-          title: local.title,
-          description: local.description,
-          category: local.category,
-          level: local.level,
-          pass_mark: local.pass_mark,
-          questions: local.questions,
-          skills: local.outcomes,
-          about: local.about,
-          image: local.image,
-          sample: true,
-        },
-        lessons: local.curriculum,
-      });
-      setError('');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
-    api('/courses/' + id + '/preview').then(setData).catch(e => setError(e.message)).finally(() => setLoading(false));
+    api('/courses/' + id + '/preview')
+      .then(setData)
+      .catch((requestError) => setError(requestError.message))
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <Wrap><Loading label="Loading course…" /></Wrap>;
   if (error || !data) return <Wrap><StateBox title="Course unavailable" text={error || 'This course could not be found.'} action={<Link to="/courses" className={btnSoft}>Back to courses</Link>} /></Wrap>;
 
   const { course, lessons } = data;
-  const isSample = course.sample || SAMPLE_COURSES.some(c => c.id === id);
   const total = lessons.reduce((s, l) => s + (l.duration_min || 0), 0);
   const level = course.level || 'Beginner';
   const startTo = `/learn/course/${id}`;
-  const cta = user ? (isSample ? 'Enroll in the course' : 'Open course') : 'Enroll for free';
-  const enrollsThroughPopup = user && isSample;
+  const cta = user ? 'Open course' : 'Enroll for free';
+  const enrollsThroughPopup = false;
   const about = course.about || [
     course.description,
     'This course is delivered in short, self-paced lessons you can complete on any device. Each lesson ends with a simple knowledge check, and a final assessment confirms your understanding.',
@@ -1031,7 +483,7 @@ function Preview() {
                 <div className="relative overflow-hidden rounded-lg border border-teal/25 bg-gradient-to-b from-white to-mint/50 px-5 py-6 text-center">
                   <div className="pointer-events-none absolute inset-1.5 rounded border border-teal/15" aria-hidden="true" />
                   <div className="relative">
-                    <div className="font-display text-sm font-semibold tracking-[-0.01em] text-forest">Thanzi<span className="text-teal">Learn</span></div>
+                    <div className="font-display text-sm font-semibold tracking-[-0.01em] text-forest">Nzeruhive</div>
                     <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-muted">Certificate of completion</div>
                     <div className="mx-auto mt-4 h-px w-10 bg-teal/30" aria-hidden="true" />
                     <div className="mt-4 text-[10px] text-muted">This certifies that</div>
@@ -1046,7 +498,7 @@ function Preview() {
                       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-teal/25 bg-white text-teal"><Icon name="award" className="h-4 w-4" /></span>
                       <div className="flex-1">
                         <div className="h-px bg-border" />
-                        <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-muted">ThanziLearn</div>
+                        <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-muted">Nzeruhive</div>
                       </div>
                     </div>
                   </div>
@@ -1088,7 +540,7 @@ function Preview() {
 
       {enrollOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1F33]/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary-900/60 p-4"
           onClick={() => setEnrollOpen(false)}
         >
           <div
@@ -1133,10 +585,10 @@ function About() {
           <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
             <div>
               <p className={eyebrowCls}>Our story</p>
-              <h2 className={`mt-2.5 ${h2Cls}`}>Why ThanziLearn?</h2>
+              <h2 className={`mt-2.5 ${h2Cls}`}>Why Nzeruhive?</h2>
               <div className="mt-4 space-y-4 text-[15px] leading-7 text-body md:text-base">
                 <p>Healthcare professionals and students need learning that is accessible, relevant, and easy to fit into busy schedules. Yet opportunities for continued education can be limited by time, distance, and resources.</p>
-                <p>ThanziLearn was created to help bridge that gap by offering flexible healthcare education that supports continuous learning. Through focused courses and clear learning experiences, we aim to make it easier for learners to grow their knowledge and apply it in practice.</p>
+                <p>Nzeruhive was created to help bridge that gap by offering flexible healthcare education that supports continuous learning. Through focused courses and clear learning experiences, we aim to make it easier for learners to grow their knowledge and apply it in practice.</p>
               </div>
             </div>
             <div className="relative">
@@ -1156,7 +608,7 @@ function About() {
             <p className={eyebrowCls}>Learning experience</p>
             <h2 className={`mt-2.5 ${h2Cls}`}>A clear and engaging way to learn.</h2>
             <p className={`mt-3 ${bodyCls}`}>
-              ThanziLearn offers focused courses with clear learning materials, knowledge checks, and progress tracking to support understanding at every step. Learners can move at their own pace and, upon successful completion, receive a certificate of completion to reflect their learning.
+              Nzeruhive offers focused courses with clear learning materials, knowledge checks, and progress tracking to support understanding at every step. Learners can move at their own pace and, upon successful completion, receive a certificate of completion to reflect their learning.
             </p>
             <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
               {['Focused courses', 'Engaging materials', 'Knowledge checks', 'Progress & certificates'].map(item => (
@@ -1251,12 +703,12 @@ function ContactPage() {
       <Wrap>
         <div className="-mt-8 grid gap-5 md:-mt-12 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="rounded-xl bg-forest p-6 text-white md:p-8">
-            <div className="font-display text-xl font-semibold">Thanzi<span className="text-orange">Learn</span></div>
+            <div className="font-display text-xl font-semibold">Nzeruhive</div>
             <p className="mt-2.5 text-[13px] leading-6 text-white/70">We usually reply within one working day. For urgent clinical matters, contact your local health authority or supervisor.</p>
             <div className="mt-6 space-y-4 text-[13px]">
-              <a href="mailto:hello@thanzilearn.org" className="flex items-start gap-3 text-white/85 transition hover:text-white">
+              <a href="mailto:hello@nzeruhive.org" className="flex items-start gap-3 text-white/85 transition hover:text-white">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/10 text-mint"><Icon name="mail" className="h-4 w-4" /></span>
-                <span><span className="block text-[10px] uppercase tracking-[0.14em] text-white/45">Email</span>hello@thanzilearn.org</span>
+                <span><span className="block text-[10px] uppercase tracking-[0.14em] text-white/45">Email</span>hello@nzeruhive.org</span>
               </a>
               <div className="flex items-start gap-3 text-white/85">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/10 text-mint"><Icon name="clock" className="h-4 w-4" /></span>
@@ -1272,7 +724,7 @@ function ContactPage() {
             <h2 className="font-display text-xl font-semibold text-forest">Send us a message</h2>
             <p className="mt-1.5 text-[13px] leading-6 text-body">Fill in the form and we will get back to you by email.</p>
             <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); setSent(true); }}>
-              {sent && <Notice type="success">Thanks for your message. If email delivery isn’t configured in this environment, please contact us directly at hello@thanzilearn.org.</Notice>}
+              {sent && <Notice type="success">Thanks for your message. If email delivery isn’t configured in this environment, please contact us directly at hello@nzeruhive.org.</Notice>}
               <div><label className="mb-1 block text-[13px] font-medium text-forest" htmlFor="contact-name">Name</label><input id="contact-name" className={inp} required placeholder="Your full name" /></div>
               <div><label className="mb-1 block text-[13px] font-medium text-forest" htmlFor="contact-email">Email</label><input id="contact-email" className={inp} required type="email" placeholder="you@example.com" /></div>
               <div><label className="mb-1 block text-[13px] font-medium text-forest" htmlFor="contact-message">Message</label><textarea id="contact-message" className={inp + ' min-h-32'} required placeholder="How can we help?" /></div>
@@ -1315,7 +767,7 @@ function AuthPage({ reg = false, admin = false }) {
   const [slide, setSlide] = useState(0);
   const navigate = useNavigate();
   const testimonials = [
-    { quote: 'ThanziLearn makes it easy to fit learning into a busy schedule and apply new knowledge with confidence.', name: 'Grace M.', role: 'Nurse' },
+    { quote: 'Nzeruhive makes it easy to fit learning into a busy schedule and apply new knowledge with confidence.', name: 'Grace M.', role: 'Nurse' },
     { quote: 'The courses are clear, practical, and focused on what matters most in everyday healthcare work.', name: 'Daniel K.', role: 'Clinical Officer' },
     { quote: 'I appreciate being able to learn at my own pace and track my progress along the way.', name: 'Memory P.', role: 'Community Health Worker' },
   ];
@@ -1345,7 +797,7 @@ function AuthPage({ reg = false, admin = false }) {
         <img src="/images/why.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-black/45" />
         <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
-          <Link to="/" className="font-display text-2xl font-semibold" style={{ color: '#FFFFFF' }}>Thanzi<span className="text-orange">Learn</span></Link>
+          <Link to="/" className="font-display text-2xl font-semibold" style={{ color: '#FFFFFF' }}>Nzeruhive</Link>
           <div>
             <h1 className="max-w-md font-display text-[2rem] font-semibold leading-[1.15] tracking-[-0.02em]" style={{ color: '#FFFFFF' }}>{admin ? 'Manage courses and learners' : reg ? 'Start your learning journey' : 'Welcome back'}</h1>
             <p className="mt-3 max-w-md text-[15px] leading-7 text-white/80">Access practical courses, track progress, and earn completion certificates.</p>
@@ -1366,7 +818,7 @@ function AuthPage({ reg = false, admin = false }) {
       </div>
       <div className="flex items-center justify-center bg-white p-6 md:p-10">
         <form onSubmit={submit} className="w-full max-w-md">
-          <Link to="/" className="font-display text-lg font-semibold tracking-[-0.02em] text-forest md:hidden">Thanzi<span className="text-teal">Learn</span></Link>
+          <Link to="/" className="font-display text-lg font-semibold tracking-[-0.02em] text-forest md:hidden">Nzeruhive</Link>
           <h2 className="mt-4 font-display text-2xl font-semibold text-forest md:mt-0">{admin ? 'Admin sign in' : reg ? 'Create your account' : 'Sign in'}</h2>
           <p className="mt-1.5 text-[13px] leading-6 text-body">{reg ? 'Use your email to create a free learner account.' : 'Enter your email and password to continue.'}</p>
           <div className="mt-7 space-y-4">
@@ -1386,7 +838,7 @@ function AuthPage({ reg = false, admin = false }) {
 function InfoPage({ title, text, backTo = '/login', backLabel = 'Back to sign in', embedded = false }) {
   const content = (
     <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-sm md:p-8">
-      <Link to="/" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">ThanziLearn</Link>
+      <Link to="/" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">Nzeruhive</Link>
       <h1 className="mt-4 font-display text-2xl font-semibold text-forest">{title}</h1>
       <p className="mt-2.5 text-[13px] leading-6 text-body">{text}</p>
       <div className="mt-6 flex flex-wrap gap-3"><Link to={backTo} className={btn}>{backLabel}</Link><Link to="/contact" className={btnSoft}>Contact support</Link></div>
@@ -1410,7 +862,7 @@ function LearnerShell({ children, title, subtitle, current = 'Dashboard' }) {
     <div className="min-h-screen bg-mist text-ink">
       <div className="flex min-h-screen">
         <aside className="hidden w-72 flex-col border-r border-border bg-white p-5 lg:flex">
-          <Link to="/" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">ThanziLearn</Link>
+          <Link to="/" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">Nzeruhive</Link>
           <div className="mt-7 flex items-center gap-3 rounded-xl bg-mint p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lake font-display text-xs font-semibold text-white">{initials(user?.name)}</div>
             <div className="min-w-0"><div className="truncate text-sm font-medium">{user?.name}</div><div className="text-[11px] text-body">Learner account</div></div>
@@ -1426,7 +878,7 @@ function LearnerShell({ children, title, subtitle, current = 'Dashboard' }) {
           <header className="border-b border-border bg-white px-4 py-3.5 md:px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-3 lg:hidden"><Link to="/" className="font-display text-lg font-semibold tracking-[-0.02em] text-lake">ThanziLearn</Link></div>
+                <div className="flex items-center gap-3 lg:hidden"><Link to="/" className="font-display text-lg font-semibold tracking-[-0.02em] text-lake">Nzeruhive</Link></div>
                 <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">{current}</div>
                 <h1 className="truncate font-display text-xl font-semibold">{title}</h1>
                 {subtitle && <p className="text-[13px] text-body">{subtitle}</p>}
@@ -1488,7 +940,7 @@ function LearnDashboard() {
   const active = tabs.find(t => t.id === tab) || tabs[0];
 
   return (
-    <Site>
+    <PublicLayout>
       {/* White greeting hero, in keeping with the rest of the public site */}
       <section className="border-b border-border bg-white">
         <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-5 md:py-14 lg:px-10">
@@ -1571,7 +1023,7 @@ function LearnDashboard() {
           </div>
         </div>
       </Wrap>
-    </Site>
+    </PublicLayout>
   );
 }
 
@@ -1781,12 +1233,12 @@ function SettingsPage() {
   const roleLabel = user?.role === 'admin' ? 'Administrator' : user?.role === 'supervisor' ? 'Supervisor' : 'Learner account';
 
   return (
-    <Site>
+    <PublicLayout>
       <section className="border-b border-border bg-white">
         <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-5 md:py-12 lg:px-10">
           <p className={eyebrowCls}>Account</p>
           <h1 className={`mt-2 ${h1Cls}`}>Settings</h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-body">Update your personal details and password, and keep your ThanziLearn account secure.</p>
+          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-body">Update your personal details and password, and keep your Nzeruhive account secure.</p>
         </div>
       </section>
 
@@ -1855,7 +1307,7 @@ function SettingsPage() {
           </div>
         </div>
       </Wrap>
-    </Site>
+    </PublicLayout>
   );
 }
 
@@ -1898,7 +1350,7 @@ function CertificateViewPage() {
       <div className="mx-auto max-w-4xl">
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm print:border-0 print:p-0 print:shadow-none">
           <div className="rounded-xl border-4 border-lake bg-white p-8 text-center md:p-12">
-            <div className="font-display text-2xl font-semibold text-lake">ThanziLearn</div>
+            <div className="font-display text-2xl font-semibold text-lake">Nzeruhive</div>
             <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">Certificate of completion</p>
             <p className="mt-8 text-base text-body">This certifies that</p>
             <h2 className="mt-2 font-display text-3xl font-semibold">{user?.name}</h2>
@@ -1919,11 +1371,11 @@ function CertificateViewPage() {
 
 function NotFound() {
   return (
-    <Site>
+    <PublicLayout>
       <Wrap>
         <StateBox title="Page not found" text="The page you’re looking for doesn’t exist or may have moved." action={<Link to="/" className={btn}>Go to home</Link>} />
       </Wrap>
-    </Site>
+    </PublicLayout>
   );
 }
 
@@ -1969,7 +1421,7 @@ function AdminGate({ children }) {
     <div className="min-h-screen bg-mist text-ink">
       <div className="flex min-h-screen">
         <aside className="hidden w-72 flex-col border-r border-border bg-white p-5 lg:flex">
-          <Link to="/admin" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">ThanziLearn</Link>
+          <Link to="/admin" className="font-display text-xl font-semibold tracking-[-0.02em] text-lake">Nzeruhive</Link>
           <div className="mt-7 flex items-center gap-3 rounded-xl bg-mint p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lake font-display text-xs font-semibold text-white">{initials(user.name)}</div>
             <div className="min-w-0"><div className="truncate text-sm font-medium">{user.name}</div><div className="text-[11px] text-body">Administrator</div></div>
@@ -1988,7 +1440,7 @@ function AdminGate({ children }) {
           <header className="border-b border-border bg-white px-4 py-3.5 md:px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-3 lg:hidden"><Link to="/admin" className="font-display text-lg font-semibold tracking-[-0.02em] text-lake">ThanziLearn</Link></div>
+                <div className="flex items-center gap-3 lg:hidden"><Link to="/admin" className="font-display text-lg font-semibold tracking-[-0.02em] text-lake">Nzeruhive</Link></div>
                 <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Admin</div>
                 <h1 className="truncate font-display text-xl font-semibold">{title}</h1>
                 <p className="text-[13px] text-body">{subtitle}</p>
@@ -2055,29 +1507,31 @@ function RedirectToLearnCertificate() {
   return <Navigate to={`/learn/certificates/${id}`} replace />;
 }
 
-export default function App() {
-  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('u') || 'null'); } catch { return null; } });
-  const [authMode, setAuthMode] = useState(null);
-  const login = ({ token, user }) => { localStorage.setItem('t', token); localStorage.setItem('u', JSON.stringify(user)); setUser(user); };
-  const logout = () => { localStorage.clear(); setUser(null); };
-  const openAuth = useMemo(() => mode => setAuthMode(mode === 'register' ? 'register' : 'login'), []);
-  const closeAuth = useMemo(() => () => setAuthMode(null), []);
-  const switchAuth = useMemo(() => mode => setAuthMode(mode === 'register' ? 'register' : 'login'), []);
-  const value = useMemo(() => ({ user, login, logout }), [user]);
+function AppRoutes() {
+  const { user } = useAuth();
+  const { mode, closeAuth, switchAuth } = useAuthDialogState();
   const home = user?.role === 'admin' ? '/admin' : '/learn';
   return (
-    <Ctx.Provider value={value}>
-      <AuthDialogCtx.Provider value={openAuth}>
-        <BrowserRouter>
+    <BrowserRouter>
           <Routes>
-          <Route path="/" element={<Site><Landing /></Site>} />
-          <Route path="/courses" element={<Site><Catalogue /></Site>} />
-          <Route path="/courses/:id" element={<Site><Preview /></Site>} />
-          <Route path="/about" element={<Site><About /></Site>} />
+          <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
+          <Route path="/courses" element={<PublicLayout><CoursesPage /></PublicLayout>} />
+          <Route path="/courses/:id" element={<PublicLayout><Preview /></PublicLayout>} />
+          <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
+          <Route path="/categories" element={<Navigate to="/courses" replace />} />
+          <Route path="/institutions" element={<PublicLayout><InstitutionsPage /></PublicLayout>} />
+          <Route path="/institutions/:slug" element={<PublicLayout><InstitutionDetailPage /></PublicLayout>} />
+          <Route path="/organisations" element={<PublicLayout><OrganisationPage /></PublicLayout>} />
+          <Route path="/organisations/apply" element={<PublicLayout><OrganisationApplyPage /></PublicLayout>} />
+          <Route path="/learning-paths" element={<PublicLayout><LearningPathsPage /></PublicLayout>} />
+          <Route path="/learning-paths/:slug" element={<PublicLayout><LearningPathDetailPage /></PublicLayout>} />
+          <Route path="/help" element={<PublicLayout><HelpPage /></PublicLayout>} />
+          <Route path="/faq" element={<PublicLayout><FaqPage /></PublicLayout>} />
+          <Route path="/cookie-policy" element={<PublicLayout><CookiePolicyPage /></PublicLayout>} />
 
-          <Route path="/contact" element={<Site><ContactPage /></Site>} />
-          <Route path="/privacy" element={<Site><InfoPage embedded title="Privacy Policy" text="Our privacy policy is being prepared. If you have questions about how your information is handled, please contact us." backTo="/" backLabel="Back to home" /></Site>} />
-          <Route path="/terms" element={<Site><InfoPage embedded title="Terms of Use" text="Our terms of use are being prepared. By using ThanziLearn you agree to use the platform responsibly for learning purposes." backTo="/" backLabel="Back to home" /></Site>} />
+          <Route path="/contact" element={<PublicLayout><ContactPage /></PublicLayout>} />
+          <Route path="/privacy" element={<PublicLayout><InfoPage embedded title="Privacy Policy" text="Our privacy policy is being prepared. If you have questions about how your information is handled, please contact us." backTo="/" backLabel="Back to home" /></PublicLayout>} />
+          <Route path="/terms" element={<PublicLayout><InfoPage embedded title="Terms of Use" text="Our terms of use are being prepared. By using Nzeruhive you agree to use the platform responsibly for learning purposes." backTo="/" backLabel="Back to home" /></PublicLayout>} />
           <Route path="/login" element={user ? <Navigate to={home} replace /> : <AuthPage />} />
           <Route path="/register" element={user ? <Navigate to={home} replace /> : <AuthPage reg />} />
           <Route path="/forgot-password" element={<InfoPage title="Password reset" text="Self-service password reset isn’t available in this version yet. Please contact your administrator or support to reset your password." />} />
@@ -2109,9 +1563,17 @@ export default function App() {
 
           <Route path="*" element={<NotFound />} />
         </Routes>
-        {authMode && <AuthDialog mode={authMode} onClose={closeAuth} onSwitch={switchAuth} />}
-      </BrowserRouter>
-      </AuthDialogCtx.Provider>
-    </Ctx.Provider>
+        {mode && <AuthDialog mode={mode} onClose={closeAuth} onSwitch={switchAuth} />}
+    </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthDialogProvider>
+        <AppRoutes />
+      </AuthDialogProvider>
+    </AuthProvider>
   );
 }

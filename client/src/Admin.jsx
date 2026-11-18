@@ -14,7 +14,7 @@ async function api(path, opts = {}) {
 }
 
 const inp = 'w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-lake';
-const btn = 'inline-flex items-center justify-center rounded-lg bg-lake px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0F52B5] disabled:opacity-60';
+const btn = 'inline-flex items-center justify-center rounded-lg bg-lake px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60';
 const ghost = 'inline-flex items-center justify-center rounded-lg border border-border bg-white px-3 py-2 text-[13px] font-medium hover:border-lake/40 hover:text-lake';
 const card = 'rounded-xl border border-border bg-white p-5';
 
